@@ -1,18 +1,14 @@
 const validStringRegex = /^[1-9.]{81}$/
+const validValueRegex = /^[1-9.]$/
+
+const requiredFieldMissing = { error: 'Required field missing' };
+const invalidCharacters = { error: 'Invalid characters in puzzle' };
+const invalidLength = { error: 'Expected puzzle to be 81 characters long' };
+const puzzleCannotBeSolved = { error: 'Puzzle cannot be solved' };
+
+
 
 class SudokuSolver {
-
-  validate(puzzleString) {
-    let result;
-    if (puzzleString.length !== 81) {
-      result = { error: 'Expected puzzle to be 81 characters long' }
-    } else if (!validStringRegex.test(puzzleString)) {
-      result = { error: 'Invalid characters in puzzle' }
-    } else {
-      result = true
-    }
-    return result
-  }
 
   getValues(puzzleString, startIndex, step, length) {
     return Array.from({ length }, (_, index) => puzzleString[startIndex + step * index]);
@@ -26,8 +22,7 @@ class SudokuSolver {
 
   checkColPlacement(puzzleString, column, value) {
     const colValues = this.getValues(puzzleString, column, 9, 9);
-    const isValidPlacement = !colValues.some(val => val === value.toString() && val !== '.');
-    return isValidPlacement;
+    return !colValues.includes(value.toString());
   }
 
   checkRegionPlacement(puzzleString, row, column, value) {
@@ -40,15 +35,70 @@ class SudokuSolver {
         regionValues.push(puzzleString[(regionRowStart + i) * 9 + regionColStart + j]);
       }
     }
+    console.log(regionValues);
 
-    return !regionValues.includes(value);
+    return !regionValues.includes(value.toString());
+  }
+
+  validateValue(value) {
+    if(!validValueRegex.test(value)) {
+      return invalidValue;
+    } else {
+      return true;
+    }
+  }
+
+  validate(puzzleString) {
+    if (!puzzleString) {
+      return requiredFieldMissing;
+    } else if (puzzleString.length !== 81) {
+      return invalidLength;
+    } else if (!validStringRegex.test(puzzleString)) {
+      return invalidCharacters;
+    } else {
+      return true;
+    }
   }
 
   solve(puzzleString) {
-    if (!this.validate(puzzleString)) {
-      return { error: 'Invalid characters in puzzle' }
+    let result;
+    const isValid = this.validate(puzzleString);
+    if (isValid !== true) {
+      result = isValid;
+    } else {
+      const solved = this.solvePuzzle(puzzleString);
+      if (solved === false) {
+        result = puzzleCannotBeSolved;
+      } else {
+        result = { solution: solved };
+      }
     }
-    return { solution: puzzleString }    
+
+    return result
+  }
+
+  solvePuzzle(puzzleString) {
+    const emptyIndex = puzzleString.indexOf('.');
+    if (emptyIndex === -1) {
+      return puzzleString;
+    }
+
+    const row = Math.floor(emptyIndex / 9);
+    const col = emptyIndex % 9;
+
+    for (let value = 1; value <= 9; value++) {
+      if (this.checkRowPlacement(puzzleString, row, value) &&
+        this.checkColPlacement(puzzleString, col, value) &&
+        this.checkRegionPlacement(puzzleString, row, col, value)) {
+        const newPuzzleString = puzzleString.slice(0, emptyIndex) + value + puzzleString.slice(emptyIndex + 1);
+        const result = this.solvePuzzle(newPuzzleString);
+        if (result) {
+          return result;
+        }
+      }
+    }
+
+    return false;
   }
 }
 
